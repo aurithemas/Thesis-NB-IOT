@@ -1,0 +1,40 @@
+#Datatypes
+StarterKitNB	KEYWORD1
+
+#Method and function names
+Reset	KEYWORD2
+bg77_at	KEYWORD2
+SerialComm	KEYWORD2
+Connect	KEYWORD2
+Reconnect	KEYWORD2
+DeviceCheck	KEYWORD2
+ConnectionStatus	KEYWORD2
+ConnectBroker	KEYWORD2
+SendMessage	KEYWORD2
+DisconnectBroker	KEYWORD2
+SubscribeMQTT	KEYWORD2
+WaitMessageMQTT	KEYWORD2
+StartGPS	KEYWORD2
+PositionGPS	KEYWORD2
+EndGPS	KEYWORD2
+UploadFile	KEYWORD2
+DeleteFile	KEYWORD2
+ListStorage	KEYWORD2
+StartPSM	KEYWORD2
+StopPSM	KEYWORD2
+
+#setup, loop, Serial, and a few more
+Setup	KEYWORD3
+
+#Constants
+POWER	LITERAL1
+BG77_GPS_ENABLE	LITERAL1
+
+#Apparently, not used
+commandChar	LITERAL2
+CommandString	LITERAL2
+
+
+
+
+

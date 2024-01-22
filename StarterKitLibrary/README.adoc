@@ -1,0 +1,22 @@
+## StarterKitLibrary
+
+La carpeta contiene la librería a usar para el manejo sencillo y rápido del dispositivo StarterKit, incluyendo el código fuente de la librería y ejemplos para su implementación. 
+
+Dentro de la carpeta /src se encuentran los archivos que definen el código fuente de la librería, al igual que un documento explicando las funciones que esta contiene. La carpeta /examples/ provee distintos ejemplos de las funcionalidades del dispositivo para su rápida implementación en proyectos de diversa indole, haciendo uso de la tecnología NB-IoT.
+
+### Instalación Arduino IDE: 
+Para lograr la instalación y su futuro uso en la presente aplicación, se tendrá que copiar la carpeta StarterKitLibrary en el directorio que se encuentra instalado Arduino, y luego pegar la carpeta en la carpeta "libraries". Finalmente, en el script que se querrá utilizar, se incluirá en las primeras filas del código:
+
+        #include <StarterKitNB.h>
+
+#### Instalación PlatformIO:
+Para lograr la instalación y su futuro uso en la extensión PlatformIO del editor de texto VSCode, se tendrá que ubicar la carpeta StarterKitLibrary en cualquier parte del dispositivo utilizado. Luego, al crear un nuevo proyecto, se tendrá que insertar las siguientes filas de código en el archivo platformio.ini:
+
+        monitor_speed = 115200
+        monitor_echo = yes
+        lib_deps = C:\Users\yourdirectory\StarterKitLibrary
+        
+Y finalmente ocupar en las primeras filas del código el comando:
+
+        #include <StarterKitNB.h>
+

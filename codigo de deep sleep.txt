@@ -1,0 +1,292 @@
+#include <Arduino.h>
+#include <StarterKitNB.h>
+#include <time.h>
+#include <WiFi.h>
+
+RTC_DATA_ATTR int bootCount = 0;
+
+// Adafruit variables
+
+const char *broker = "io.adafruit.com";
+const char *port = "1883";
+const char *topic = "ArumeQueen/feeds/presentacion";
+const char *userBroker = "ArumeQueen";
+const char *passwordBroker = "aio_PzuK56xxhX4mZeifcgccTuAUgKtO";
+const char *AIO_USERNAME = "ArumeQueen";
+
+StarterKitNB sk;
+
+// General def
+int i = 0;
+int j = 0;
+
+// NB connect
+const char *apn = "m2m.entel.cl";
+const char *user = "entelpcs";
+const char *pass = "entelpcs";
+const char *band = "B28 LTE";
+
+// KPIs
+int indexVariables;
+int indexVariablesNext;
+String resp = "";
+String CI = "";
+String CE = "";
+String RSSI = "";
+String RSRP = "";
+String SINR = "";
+String RSRQ = "";
+String BER = "";
+String msg = "";
+String nums = "-0123456789";
+
+// Variables de tiempo
+const char *ssid = "invitados";
+const char *password = "49852731";
+const char *ntpServer = "pool.ntp.org";
+const long gmtOffset_sec = 3600 * (-3);
+const int daylightOffset_sec = 3600;
+const int startTimes[] = {18*60+50, 18*60+52 ,18*60+53}; // Horas de inicio en formato 24 horas, ¡DEBEN IR EN ORDEN! ( 00:01 se escribe como 1, el formato es hora *60 + minutos)
+const int duration = 15/60;                                    // Duración en minutos de funcionamiento del loop
+const char *time_zone = "CET-3CEST, M3.5.9;M10.5.0/3";
+const int t_calentamiento =  60*(1000*60);                      //calentamiento del dispositivo en minutos 
+// Declaracion de funciones
+void setClock();
+int calculateRemainingTime();
+void printCurrentTime(struct tm timeinfo);
+
+// Variables
+int remainingTime;
+
+// Funciones
+
+void connectWiFi()
+{
+  WiFi.begin(ssid, password);
+  Serial.printf("Connecting to %s WiFi Network ", ssid);
+  while (WiFi.status() != WL_CONNECTED)
+  {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("");
+  Serial.println();
+  Serial.println("You are connected to WiFi!");
+  setClock(); 
+}
+
+void disconnectWiFi()
+{
+  WiFi.disconnect(true);
+  WiFi.mode(WIFI_OFF);
+}
+
+void setClock()
+{
+  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
+  Serial.println();
+  Serial.print("Waiting for NTP time sync: ");
+  time_t nowSecs = time(nullptr);
+  while (nowSecs < 8 * 3600 * 2)
+  {
+    delay(500);
+    Serial.print(".");
+    yield();
+    nowSecs = time(nullptr);
+  }
+  Serial.println("");
+
+  struct tm timeinfo;
+  localtime_r(&nowSecs, &timeinfo); // Use localtime_r instead of gmtime_r
+  Serial.println();
+  Serial.print("Current time (UTC-3): ");
+  Serial.print(asctime(&timeinfo));
+}
+
+void printCurrentTime(struct tm timeinfo)
+{
+  if (bootCount == 0)
+  {
+    Serial.println("Everything is setup correctly, Welcome!");
+    Serial.println();
+  }
+  else
+  {
+    // Adjust for UTC-3 timezone
+    time_t adjustedTime = mktime(&timeinfo) + gmtOffset_sec; // Subtract 3 hours
+    localtime_r(&adjustedTime, &timeinfo);
+    Serial.print("Current time of the device: ");
+    Serial.println((&timeinfo)); // Print in the default format
+  }
+}
+
+void setup()
+{
+  Serial.begin(115200);
+  sk.Setup(false);
+  pinMode(WB_LED1, OUTPUT);
+  pinMode(WB_LED2, OUTPUT);
+  sk.UserAPN(apn, user, pass);
+  sk.Connect(apn, band);
+  struct tm timeinfo;
+  time_t now;
+  time(&now);
+  localtime_r(&now, &timeinfo);
+  printCurrentTime(timeinfo);
+
+  if (bootCount == 0)
+  {
+    connectWiFi();
+    struct tm timeinfo;
+    time_t now;
+    time(&now);
+    localtime_r(&now, &timeinfo);
+    printCurrentTime(timeinfo);
+    disconnectWiFi();
+    delay(1000);
+    Serial.print("Wake up ");
+
+    remainingTime = calculateRemainingTime();
+    
+    esp_sleep_enable_timer_wakeup(remainingTime* 1000000ULL);
+    Serial.println("");
+    bootCount++;
+    Serial.println("Going to sleep...");
+
+    esp_deep_sleep_start();
+   
+  }
+  
+  sk.StopPSM();
+  delay(1000);
+
+}
+
+  
+void loop()
+{
+  struct tm timeinfo;
+  time_t now;
+  time(&now);
+  localtime_r(&now, &timeinfo);
+  unsigned long startMillis = millis();  // Get the current time
+  
+  while (millis() - startMillis < duration * 60 * 1000) {
+    time(&now);  // Update the current time
+    localtime_r(&now, &timeinfo);
+    printCurrentTime(timeinfo);
+    Serial.print("Going to sleep in: ");
+    Serial.print(duration -(millis()/ 60000));
+    Serial.println(" minutes.");
+    delay(5000); 
+  }
+
+  time(&now);  // Update the current time
+  localtime_r(&now, &timeinfo);
+  printCurrentTime(timeinfo);
+  
+  remainingTime = calculateRemainingTime();
+  int hours = remainingTime / 3600;
+  int minutes = (remainingTime % 3600) / 60;
+  Serial.println("Going to sleep...");
+  Serial.print("Wake up: ");
+  Serial.print(hours);
+  Serial.print("h ");
+  Serial.print(minutes);
+  Serial.print("m ");
+  
+
+  esp_sleep_enable_timer_wakeup(remainingTime * 1000000ULL);
+  esp_deep_sleep_start();
+}
+
+
+
+int calculateRemainingTime()
+{
+  
+  struct tm timeinfo;
+  time_t now;
+  time(&now);
+  localtime_r(&now, &timeinfo);
+  if (bootCount == 0){
+    
+    int currentTimeInMinutes = timeinfo.tm_hour * 60 + timeinfo.tm_min;
+    int closestStartTime = startTimes[0];
+    int nextStartTime = startTimes[0];
+
+    for (int i = 0; i < sizeof(startTimes) / sizeof(startTimes[0]); i++)
+    {
+      int currentStartTime = startTimes[i];
+      int nextStartTimeCandidate = (i < sizeof(startTimes) / sizeof(startTimes[0]) - 1) ? startTimes[i + 1] : startTimes[0] + 24 * 60;
+
+      if (currentStartTime <= currentTimeInMinutes && nextStartTimeCandidate > currentTimeInMinutes)
+      {
+        // The current time is within the range of the current start time and the next start time
+        closestStartTime = currentStartTime;
+        nextStartTime = nextStartTimeCandidate;
+        break;
+      }
+    }
+
+    int remainingTimeInMinutes = (currentTimeInMinutes < closestStartTime) ? closestStartTime - currentTimeInMinutes : nextStartTime - currentTimeInMinutes;
+
+    int remainingTimeInSeconds = remainingTimeInMinutes * 60;
+
+    Serial.print("remaining time: ");
+    Serial.print(remainingTimeInSeconds / 3600);
+    Serial.print("h ");
+    Serial.print((remainingTimeInSeconds % 3600) / 60);
+    Serial.print("m ");
+    Serial.print(remainingTimeInSeconds % 60);
+    Serial.println("s");
+
+    return remainingTimeInSeconds;
+  }
+  else {
+
+  int currentTimeInMinutes = timeinfo.tm_hour * 60 + timeinfo.tm_min;
+  int closestStartTime = startTimes[0] - gmtOffset_sec / 60;
+  int nextStartTime = startTimes[0] - gmtOffset_sec / 60;
+  
+
+    for (int i = 0; i < sizeof(startTimes) / sizeof(startTimes[0]); i++)
+    {
+      int currentStartTime = startTimes[i] - gmtOffset_sec / 60;
+      int nextStartTimeCandidate = (i < sizeof(startTimes) / sizeof(startTimes[0]) - 1) ? startTimes[i + 1] - gmtOffset_sec / 60 : startTimes[0] + 24 * 60;
+
+      if (currentStartTime <= currentTimeInMinutes && nextStartTimeCandidate > currentTimeInMinutes)
+      {
+        closestStartTime = currentStartTime;
+        nextStartTime = nextStartTimeCandidate;
+        break;
+      }
+    }
+   
+
+    int remainingTimeInMinutes = (currentTimeInMinutes < closestStartTime) ? closestStartTime - currentTimeInMinutes : nextStartTime - currentTimeInMinutes;
+    
+
+
+    if ((nextStartTime - startTimes[0]) % 1440 == 0)
+    {
+
+      // Add 3 hours (3 * 3600 seconds) to the remaining time
+      remainingTimeInMinutes += 180;
+    }
+
+    int remainingTimeInSeconds = remainingTimeInMinutes * 60;
+    Serial.println("next start time fuera del if");
+    Serial.println(nextStartTime);
+    Serial.print("remaining time: ");
+    Serial.print(remainingTimeInSeconds / 3600);
+    Serial.print("h ");
+    Serial.print((remainingTimeInSeconds % 3600) / 60);
+    Serial.print("m ");
+    Serial.print(remainingTimeInSeconds % 60);
+    Serial.println("s");
+
+    return remainingTimeInSeconds;
+  }
+
+}
